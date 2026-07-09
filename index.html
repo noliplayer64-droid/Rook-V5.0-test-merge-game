@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Eagle's Merge Test</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #222; color: #fff; }
+        #game-board { display: grid; grid-template-columns: repeat(4, 80px); gap: 10px; background: #444; padding: 10px; border-radius: 8px; }
+        .cell { width: 80px; height: 80px; background: #555; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; border-radius: 4px; border: 1px solid #666; }
+        .cell:hover { background: #666; }
+        .score { margin: 20px; font-size: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Corvid Merge</h1>
+    <div class="score">Score: <span id="score">0</span></div>
+    <div id="game-board"></div>
+    <p>Click a cell to add an item. Match two to level up!</p>
+
+    <script>
+        const board = document.getElementById('game-board');
+        const scoreEl = document.getElementById('score');
+        let score = 0;
+        let cells = Array(16).fill(0);
+
+        function render() {
+            board.innerHTML = '';
+            cells.forEach((val, i) => {
+                const div = document.createElement('div');
+                div.className = 'cell';
+                div.innerText = val === 0 ? '' : val;
+                div.onclick = () => handleClick(i);
+                board.appendChild(div);
+            });
+        }
+
+        function handleClick(i) {
+            if (cells[i] === 0) {
+                cells[i] = 1; // Spawn a 1
+            } else {
+                // Look for nearby identical number to "merge" into (simple logic)
+                let target = cells.findIndex((v, idx) => v === cells[i] && idx !== i);
+                if (target !== -1) {
+                    cells[target]++;
+                    cells[i] = 0;
+                    score += cells[target] * 10;
+                }
+            }
+            scoreEl.innerText = score;
+            render();
+        }
+        render();
+    </script>
+</body>
+</html>
