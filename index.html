@@ -2,53 +2,49 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eagle's Emoji Merge & Snake Arena</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Eagle's Emoji Merge & Swipe Snake</title>
     <style>
         :root { --cyan: #00FFFF; --dark: #0a0a0a; }
-        body { background: var(--dark); color: white; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
-        h1 { color: var(--cyan); text-shadow: 0 0 15px var(--cyan); margin-top: 5px; }
-        .stats { font-size: 1.2rem; margin-bottom: 10px; border-bottom: 1px solid var(--cyan); width: 100%; text-align: center; padding: 10px; }
+        body { background: var(--dark); color: white; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; touch-action: none; margin: 0; }
+        h1 { color: var(--cyan); text-shadow: 0 0 15px var(--cyan); margin: 10px 0; font-size: 1.5rem; }
+        .stats { font-size: 1rem; margin-bottom: 10px; border-bottom: 1px solid var(--cyan); width: 100%; text-align: center; padding: 10px; background: #000; }
         
-        /* Merge Grid */
-        .grid { display: grid; grid-template-columns: repeat(3, 80px); grid-gap: 10px; background: #1a1a1a; padding: 15px; border: 2px solid var(--cyan); box-shadow: 0 0 20px rgba(0, 255, 255, 0.2); border-radius: 8px; }
-        .cell { width: 80px; height: 80px; background: #222; display: flex; justify-content: center; align-items: center; font-size: 2.5rem; border-radius: 4px; cursor: pointer; transition: 0.2s; }
-        .cell:hover { background: #333; box-shadow: inset 0 0 10px var(--cyan); }
+        .grid { display: grid; grid-template-columns: repeat(3, 80px); grid-gap: 10px; background: #1a1a1a; padding: 15px; border: 2px solid var(--cyan); border-radius: 8px; }
+        .cell { width: 80px; height: 80px; background: #222; display: flex; justify-content: center; align-items: center; font-size: 2.5rem; border-radius: 4px; cursor: pointer; }
 
         .controls { margin-top: 15px; display: flex; gap: 8px; }
-        button { padding: 8px 15px; background: black; color: var(--cyan); border: 1px solid var(--cyan); cursor: pointer; font-weight: bold; }
-        button:hover { background: var(--cyan); color: black; }
+        button { padding: 10px 15px; background: black; color: var(--cyan); border: 1px solid var(--cyan); cursor: pointer; font-weight: bold; border-radius: 5px; }
 
         /* Snake Arena Overlay */
         #arena-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); flex-direction: column; align-items: center; justify-content: center; z-index: 100;
         }
-        canvas { background: #000; border: 2px solid var(--cyan); box-shadow: 0 0 30px var(--cyan); }
-        .arena-info { color: var(--cyan); margin-bottom: 10px; text-align: center; }
+        canvas { background: #000; border: 2px solid var(--cyan); max-width: 90vw; max-height: 70vh; }
+        .arena-info { color: var(--cyan); margin-bottom: 10px; text-align: center; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
     <div class="stats">
-        WALLET: <span id="money">100</span>💰 | HIGHEST UNIT: <span id="best-display">😁</span>
+        WALLET: <span id="money">100</span>💰 | HIGHEST: <span id="best-display">😁</span>
     </div>
 
     <h1>CYAN MERGE</h1>
     <div class="grid" id="grid"></div>
 
     <div class="controls">
-        <button onclick="spawnEmoji()">BUY (10💰)</button>
-        <button onclick="openGacha()" style="color:gold; border-color:gold;">GAMBLE (50💰)</button>
-        <button onclick="toggleArena(true)">ENTER SNAKE PIT 🐍</button>
+        <button onclick="spawnEmoji()">BUY 10</button>
+        <button onclick="openGacha()" style="color:gold; border-color:gold;">GAMBLE</button>
+        <button onclick="toggleArena(true)">SNAKE PIT 🐍</button>
     </div>
 
-    <!-- SNAKE PIT ARENA -->
+    <!-- ARENA -->
     <div id="arena-overlay">
         <div class="arena-info">
-            <h2>SNAKE PIT: BATTLE ROYALE</h2>
-            <p>Use Arrows/WASD. Your head is your <span id="player-head-label">best emoji</span>!</p>
-            <p>Size: <span id="player-size">1</span> | Coins Won: <span id="session-coins">0</span></p>
+            SWIPE TO MOVE | Head: <span id="player-head-label">😁</span><br>
+            Size: <span id="player-size">1</span> | Coins: <span id="session-coins">0</span>
         </div>
         <canvas id="snakeCanvas" width="400" height="400"></canvas>
         <br>
@@ -58,81 +54,78 @@
     <script>
         const tiers = ["😁", "😂", "😛", "🤯", "🫥", "💀", "🐔", "👽", "🦈", "👾", "🐺", "🐍"];
         const rares = ["😇", "🤪", "👻", "🦂", "🐊", "🫃", "🥀"];
-        let wallet = 100;
-        let gridData = Array(9).fill(null);
-        let selectedIdx = null;
-        let playerBestEmoji = "😁";
+        let wallet = 100, gridData = Array(9).fill(null), selectedIdx = null, playerBestEmoji = "😁";
 
-        // --- MERGE LOGIC ---
         function updateUI() {
             document.getElementById('money').innerText = wallet;
             const gridEl = document.getElementById('grid');
             gridEl.innerHTML = '';
-            
-            // Track highest emoji on board
             let maxTier = 0;
             gridData.forEach((emoji, i) => {
-                if (emoji) {
-                    let ti = tiers.indexOf(emoji);
-                    if (ti > maxTier) maxTier = ti;
-                }
+                if(emoji) { let ti = tiers.indexOf(emoji); if(ti > maxTier) maxTier = ti; }
                 const cell = document.createElement('div');
                 cell.className = 'cell';
                 cell.innerText = emoji || '';
                 if(selectedIdx === i) cell.style.boxShadow = "0 0 15px white";
-                cell.onclick = () => {
-                    if (selectedIdx === null) { if(gridData[i]) selectedIdx = i; }
-                    else {
-                        if (i !== selectedIdx && gridData[i] === gridData[selectedIdx]) {
-                            const idx = tiers.indexOf(gridData[i]);
-                            if (idx !== -1 && idx < tiers.length - 1) { 
-                                gridData[i] = tiers[idx+1]; 
-                                gridData[selectedIdx] = null; 
-                                wallet += 15; 
-                            }
-                        } else { [gridData[i], gridData[selectedIdx]] = [gridData[selectedIdx], gridData[i]]; }
-                        selectedIdx = null;
-                    }
-                    updateUI();
-                };
+                cell.onclick = () => handleMerge(i);
                 gridEl.appendChild(cell);
             });
             playerBestEmoji = tiers[maxTier];
             document.getElementById('best-display').innerText = playerBestEmoji;
         }
 
-        function spawnEmoji() { if(wallet >= 10 && gridData.includes(null)) { wallet -= 10; gridData[gridData.indexOf(null)] = tiers[0]; updateUI(); } }
-        function openGacha() { if(wallet >= 50) { wallet -= 50; if(Math.random() < 0.25) { let r = rares[Math.floor(Math.random()*rares.length)]; alert("PULLED A RARE: " + r); } updateUI(); } }
-
-        // --- SNAKE PIT BATTLE SYSTEM ---
-        const canvas = document.getElementById('snakeCanvas');
-        const ctx = canvas.getContext('2d');
-        let snake = [{x: 10, y: 10}];
-        let food = {x: 5, y: 5};
-        let cpus = [
-            {x: 5, y: 15, dx: 1, dy: 0, size: 2, emoji: '💩'},
-            {x: 18, y: 2, dx: 0, dy: 1, size: 4, emoji: '🤡'}
-        ];
-        let dx = 1, dy = 0;
-        let sessionCoins = 0;
-        let gameInterval;
-
-        function toggleArena(show) {
-            const overlay = document.getElementById('arena-overlay');
-            overlay.style.display = show ? 'flex' : 'none';
-            if(show) { 
-                document.getElementById('player-head-label').innerText = playerBestEmoji;
-                gameInterval = setInterval(gameLoop, 150); 
-                sessionCoins = 0; 
+        function handleMerge(i) {
+            if (selectedIdx === null) { if(gridData[i]) selectedIdx = i; }
+            else {
+                if (i !== selectedIdx && gridData[i] === gridData[selectedIdx]) {
+                    const idx = tiers.indexOf(gridData[i]);
+                    if (idx < tiers.length - 1) { gridData[i] = tiers[idx+1]; gridData[selectedIdx] = null; wallet += 15; }
+                } else { [gridData[i], gridData[selectedIdx]] = [gridData[selectedIdx], gridData[i]]; }
+                selectedIdx = null;
             }
-            else { clearInterval(gameInterval); wallet += sessionCoins; updateUI(); }
+            updateUI();
         }
 
+        function spawnEmoji() { if(wallet >= 10 && gridData.includes(null)) { wallet -= 10; gridData[gridData.indexOf(null)] = tiers[0]; updateUI(); } }
+        function openGacha() { if(wallet >= 50) { wallet -= 50; if(Math.random()<0.25) alert("RARE UNLOCKED!"); updateUI(); } }
+
+        // --- SNAKE LOGIC ---
+        const canvas = document.getElementById('snakeCanvas');
+        const ctx = canvas.getContext('2d');
+        let snake, food, cpus, dx, dy, sessionCoins, gameInterval;
+
+        function toggleArena(show) {
+            document.getElementById('arena-overlay').style.display = show ? 'flex' : 'none';
+            if(show) {
+                snake = [{x: 10, y: 10}]; dx = 1; dy = 0; sessionCoins = 0;
+                food = {x: 5, y: 5};
+                cpus = [{x: 5, y: 15, dx: 1, dy: 0, size: 2, emoji: '🤡'}];
+                document.getElementById('player-head-label').innerText = playerBestEmoji;
+                gameInterval = setInterval(gameLoop, 150);
+            } else { clearInterval(gameInterval); wallet += sessionCoins; updateUI(); }
+        }
+
+        // SWIPE DETECTION
+        let touchStartX = 0, touchStartY = 0;
+        document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; }, false);
+        document.addEventListener('touchend', e => {
+            let touchEndX = e.changedTouches[0].clientX;
+            let touchEndY = e.changedTouches[0].clientY;
+            let diffX = touchEndX - touchStartX;
+            let diffY = touchEndY - touchStartY;
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                if (diffX > 0 && dx === 0) { dx = 1; dy = 0; } else if (diffX < 0 && dx === 0) { dx = -1; dy = 0; }
+            } else {
+                if (diffY > 0 && dy === 0) { dx = 0; dy = 1; } else if (diffY < 0 && dy === 0) { dx = 0; dy = -1; }
+            }
+        }, false);
+
+        // KEYS 
         document.addEventListener('keydown', e => {
-            if((e.key === 'ArrowUp'||e.key === 'w') && dy === 0) { dx = 0; dy = -1; }
-            if((e.key === 'ArrowDown'||e.key === 's') && dy === 0) { dx = 0; dy = 1; }
-            if((e.key === 'ArrowLeft'||e.key === 'a') && dx === 0) { dx = -1; dy = 0; }
-            if((e.key === 'ArrowRight'||e.key === 'd') && dx === 0) { dx = 1; dy = 0; }
+            if((e.key==='ArrowUp'||e.key==='w') && dy===0) {dx=0; dy=-1;}
+            if((e.key==='ArrowDown'||e.key==='s') && dy===0) {dx=0; dy=1;}
+            if((e.key==='ArrowLeft'||e.key==='a') && dx===0) {dx=-1; dy=0;}
+            if((e.key==='ArrowRight'||e.key==='d') && dx===0) {dx=1; dy=0;}
         });
 
         function gameLoop() {
@@ -141,45 +134,24 @@
                 food = {x: Math.floor(Math.random()*20), y: Math.floor(Math.random()*20)};
                 sessionCoins += 5;
             } else { snake.pop(); }
-
-            if(head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20) return resetSnake();
+            if(head.x<0||head.x>=20||head.y<0||head.y>=20) return resetGame();
             snake.unshift(head);
 
             cpus.forEach(cpu => {
-                if(Math.random() < 0.3) {
-                    cpu.dx = Math.random() > 0.5 ? (Math.random() > 0.5 ? 1 : -1) : 0;
-                    cpu.dy = cpu.dx === 0 ? (Math.random() > 0.5 ? 1 : -1) : 0;
-                }
-                cpu.x = (cpu.x + cpu.dx + 20) % 20;
-                cpu.y = (cpu.y + cpu.dy + 20) % 20;
-
+                cpu.x = (cpu.x + cpu.dx + 20)%20; cpu.y = (cpu.y + cpu.dy + 20)%20;
                 if(head.x === cpu.x && head.y === cpu.y) {
-                    if(snake.length > cpu.size) { 
-                        sessionCoins += 50; 
-                        cpu.x = Math.floor(Math.random()*20); cpu.y = Math.floor(Math.random()*20); // Respawn CPU
-                    } else { resetSnake(); }
+                    if(snake.length > cpu.size) { sessionCoins += 50; cpu.x = -5; } else resetGame();
                 }
             });
 
-            ctx.fillStyle = "black"; ctx.fillRect(0,0,400,400);
-            ctx.font = "20px Arial";
+            ctx.fillStyle = "black"; ctx.fillRect(0,0,400,400); ctx.font = "20px Arial";
             ctx.fillText("🍎", food.x*20, food.y*20 + 20);
-            
-            // Draw body as cyan trail
-            for(let i = 1; i < snake.length; i++) {
-                ctx.fillText("💠", snake[i].x*20, snake[i].y*20 + 20);
-            }
-            // Draw head as BEST EMOJI
-            ctx.fillText(playerBestEmoji, snake[0].x*20, snake[0].y*20 + 20);
-            
-            cpus.forEach(cpu => ctx.fillText(cpu.emoji, cpu.x*20, cpu.y*20 + 20));
-            
+            snake.forEach((p, i) => ctx.fillText(i===0 ? playerBestEmoji : "💠", p.x*20, p.y*20 + 20));
+            cpus.forEach(c => ctx.fillText(c.emoji, c.x*20, c.y*20 + 20));
             document.getElementById('player-size').innerText = snake.length;
             document.getElementById('session-coins').innerText = sessionCoins;
         }
-
-        function resetSnake() { snake = [{x: 10, y: 10}]; dx = 1; dy = 0; }
-
+        function resetGame() { snake = [{x: 10, y: 10}]; dx = 1; dy = 0; }
         updateUI();
     </script>
 </body>
